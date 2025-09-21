@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rin Truyện</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdf4;
+            color: #1f2937;
+        }
+        .header {
+            background-color: #d1fae5;
+            color: #1f2937;
+            border-bottom: 2px solid #a7f3d0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 1rem;
+        }
+        .button, .link, .search-button, .story-card, .pagination-button {
+            transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+        }
+        .button:hover, .link:hover, .search-button:hover, .pagination-button:hover {
+            transform: scale(1.05);
+        }
+        .story-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .chapter-link {
+            cursor: pointer;
+            color: #10b981;
+            transition: color 0.2s;
+        }
+        .chapter-link:hover {
+            text-decoration: underline;
+        }
+        .search-container {
+            position: relative;
+        }
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 0.5rem 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        .search-suggestion-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .search-suggestion-item:hover {
+            background-color: #f3f4f6;
+        }
+        /* CSS để ngăn sao chép và chọn nội dung */
+        #chapter-reading-page {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header sticky top-0 z-50 shadow-md">
+        <div class="container flex justify-between items-center py-4">
+            <!-- Logo - Click để về trang chủ -->
+            <a href="#" class="text-3xl font-bold text-green-600" onclick="showPage('home')">Rin Truyện</a>
+            
+            <!-- Menu và tìm kiếm -->
+            <nav class="flex items-center space-x-6">
+                <!-- Các chức năng -->
+                <div class="hidden md:flex space-x-6">
+                    <a href="#" class="link font-semibold hover:text-green-500" onclick="showPage('home')">Trang Chủ</a>
+                    <a href="#" class="link font-semibold hover:text-green-500" onclick="showPage('genre')">Thể Loại</a>
+                    <a href="#" class="link font-semibold hover:text-green-500 hidden" id="admin-link" onclick="showPage('admin')">Quản trị</a>
+                </div>
+
+                <!-- Thanh tìm kiếm -->
+                <div class="search-container">
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="story-search-input" placeholder="Tìm kiếm truyện..." class="px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400 text-gray-800">
+                        <button class="search-button p-2 bg-green-500 text-white rounded-full hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400">
+                            <!-- SVG nút tìm kiếm -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="search-suggestions" class="search-suggestions hidden"></div>
+                </div>
+                
+                <!-- Nút đăng nhập/thoát quản trị -->
+                <button id="admin-access-btn" class="button px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <span id="admin-state">Đăng nhập Admin</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Modal tùy chỉnh -->
+    <div id="custom-modal" class="modal hidden">
+        <div class="modal-content rounded-lg shadow-xl">
+            <p id="modal-message" class="text-gray-800"></p>
+            <div id="modal-input-container" class="mt-4 hidden">
+                <input type="password" id="modal-input" placeholder="Nhập mật khẩu..." class="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400">
+            </div>
+            <div class="mt-4 flex justify-center space-x-4">
+                <button id="modal-ok" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Đồng ý</button>
+                <button id="modal-cancel" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 hidden">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nội dung chính -->
+    <main class="container py-8">
+        
+        <!-- Trang chủ -->
+        <div id="home-page" class="page-content">
+            <h1 class="text-4xl font-bold text-gray-800 text-center">Chào mừng đến với Rin Truyện</h1>
+            <p class="mt-4 text-lg text-gray-600 text-center">Nơi bạn có thể đắm mình vào thế giới của những câu chuyện.</p>
+            
+            <div class="mt-8">
+                <h2 class="text-2xl font-semibold text-gray-800">Danh sách Truyện</h2>
+                <div id="story-list-container" class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Danh sách truyện sẽ được hiển thị ở đây -->
+                </div>
+            </div>
+            
+            <!-- Phân trang -->
+            <div id="pagination-container" class="mt-8 flex justify-center items-center space-x-2">
+                <!-- Các nút phân trang sẽ được tạo bởi JS -->
+            </div>
+        </div>
+
+        <!-- Trang thể loại -->
+        <div id="genre-page" class="page-content hidden">
+            <h1 class="text-4xl font-bold text-gray-800 text-center">Các Thể Loại Truyện</h1>
+            <p class="mt-4 text-lg text-gray-600 text-center">Khám phá các thể loại khác nhau để tìm câu chuyện yêu thích của bạn.</p>
+            <div class="mt-8 p-6 bg-white rounded-lg shadow-lg">
+                <p class="text-gray-700">Nội dung Thể loại sẽ được hiển thị ở đây.</p>
+            </div>
+        </div>
+        
+        <!-- Trang chi tiết truyện -->
+        <div id="story-detail-page" class="page-content hidden">
+            <button onclick="backToStoryDetails()" class="mb-4 text-green-500 hover:text-green-600 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Quay lại Trang Chủ
+            </button>
+            <div class="flex justify-center items-center mb-6">
+                <img id="detail-story-image" src="https://placehold.co/300x450/1f2937/d1fae5?text=Ảnh+bìa" alt="Story cover image" class="rounded-lg shadow-lg">
+            </div>
+            <h1 id="detail-story-title" class="text-4xl font-bold text-gray-800 text-center"></h1>
+            <p id="detail-story-description" class="mt-4 text-lg text-gray-600 text-center"></p>
+            <div class="mt-8 p-6 bg-white rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold text-gray-800">Danh sách Chương</h2>
+                <div id="chapters-list-container" class="mt-4 space-y-4">
+                    <!-- Danh sách chương sẽ được hiển thị ở đây -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Trang đọc chương - Nội dung được bảo vệ -->
+        <div id="chapter-reading-page" class="page-content hidden">
+            <button onclick="backToStoryDetails()" class="mb-4 text-green-500 hover:text-green-600 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                </svg>
+                Quay lại Danh sách Chương
+            </button>
+            <h1 id="reading-chapter-title" class="text-4xl font-bold text-gray-800 text-center"></h1>
+            <div id="reading-chapter-content" class="mt-8 p-6 bg-white rounded-lg shadow-lg whitespace-pre-wrap">
+                <!-- Nội dung chương sẽ được tải ở đây -->
+            </div>
+            <div class="mt-8 flex justify-between">
+                <button id="prev-chapter-btn" class="button px-4 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block -ml-1 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Chương trước
+                </button>
+                <button id="next-chapter-btn" class="button px-4 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400">
+                    Chương tiếp theo
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block -mr-1 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Trang quản trị - Chỉ dành cho Admin -->
+        <div id="admin-page" class="page-content hidden">
+            <h1 class="text-4xl font-bold text-gray-800 text-center">Bảng Quản Trị</h1>
+            <p class="mt-4 text-lg text-green-600 text-center">Chào mừng Quản trị viên!</p>
+            
+            <!-- Thông báo truy cập trái phép -->
+            <div id="access-denied-message" class="hidden text-center mt-8 p-6 bg-red-100 text-red-700 rounded-lg shadow-md border border-red-300">
+                Bạn không có quyền truy cập vào trang này.
+            </div>
+
+            <!-- Nội dung quản trị -->
+            <div id="admin-content" class="mt-8 space-y-8 hidden">
+                
+                <!-- Thêm truyện mới -->
+                <div class="p-6 bg-white rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold text-gray-800">Thêm truyện mới</h2>
+                    <form id="add-story-form" class="mt-4 space-y-4">
+                        <div>
+                            <label for="story-name" class="block text-gray-700">Tên truyện</label>
+                            <input type="text" id="story-name" class="w-full px-4 py-2 mt-1 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400" required>
+                        </div>
+                        <div>
+                            <label for="story-description" class="block text-gray-700">Mô tả</label>
+                            <textarea id="story-description" rows="4" class="w-full px-4 py-2 mt-1 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400" required></textarea>
+                        </div>
+                        <div>
+                            <label for="story-genre" class="block text-gray-700">Thể loại</label>
+                            <input type="text" id="story-genre" class="w-full px-4 py-2 mt-1 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400" required>
+                        </div>
+                        <div>
+                            <label for="story-image" class="block text-gray-700">Ảnh đại diện</label>
+                            <input type="file" id="story-image" accept="image/*" class="w-full mt-1 rounded-md border border-gray-300">
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400">Thêm truyện</button>
+                    </form>
+                </div>
+
+                <!-- Thêm chương mới -->
+                <div class="p-6 bg-white rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold text-gray-800">Thêm chương mới</h2>
+                    <form id="add-chapter-form" class="mt-4 space-y-4">
+                        <div>
+                            <label for="chapter-story-select" class="block text-gray-700">Chọn truyện</label>
+                            <select id="chapter-story-select" class="w-full px-4 py-2 mt-1 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400" required>
+                                <!-- Tùy chọn sẽ được thêm bởi JavaScript -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="chapter-title" class="block text-gray-700">Tiêu đề chương</label>
+                            <input type="text" id="chapter-title" class="w-full px-4 py-2 mt-1 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400" required>
+                        </div>
+                        <div>
+                            <label for="chapter-content" class="block text-gray-700">Nội dung chương</label>
+                            <textarea id="chapter-content" rows="10" class="w-full px-4 py-2 mt-1 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-400" required></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400">Thêm chương</button>
+                    </form>
+                </div>
+
+                <!-- Quản lý truyện -->
+                <div class="p-6 bg-white rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold text-gray-800">Quản lý truyện</h2>
+                    <div class="mt-4 flex items-center space-x-4">
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" id="select-all-stories" class="rounded text-green-500 focus:ring-green-400">
+                            <span>Chọn tất cả</span>
+                        </label>
+                        <button id="delete-selected-stories-btn" class="py-2 px-4 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400">
+                            Xóa các truyện đã chọn
+                        </button>
+                    </div>
+                    <div id="admin-story-list-container" class="mt-4 space-y-4">
+                        <!-- Danh sách truyện để quản lý sẽ được hiển thị ở đây -->
+                    </div>
+                </div>
+
+                <!-- Quản lý chương -->
+                <div class="p-6 bg-white rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold text-gray-800">Quản lý chương</h2>
+                     <div class="mt-4 flex items-center space-x-4">
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" id="select-all-chapters" class="rounded text-green-500 focus:ring-green-400">
+                            <span>Chọn tất cả</span>
+                        </label>
+                        <button id="delete-selected-chapters-btn" class="py-2 px-4 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400">
+                            Xóa các chương đã chọn
+                        </button>
+                    </div>
+                    <div id="admin-chapters-list-container" class="mt-4 space-y-4">
+                        <!-- Danh sách chương để quản lý sẽ được hiển thị ở đây -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const ACCESS_TOKEN = 'qwertyuiop1.@';
+        const STORIES_PER_PAGE = 15;
+
+        const adminAccessBtn = document.getElementById('admin-access-btn');
+        const adminStateSpan = document.getElementById('admin-state');
+        const adminLink = document.getElementById('admin-link');
+        const pages = document.querySelectorAll('.page-content');
+        
+        const customModal = document.getElementById('custom-modal');
+        const modalMessageEl = document.getElementById('modal-message');
+        const modalInputContainer = document.getElementById('modal-input-container');
+        const modalInput = document.getElementById('modal-input');
+        const modalOkBtn = document.getElementById('modal-ok');
+        const modalCancelBtn = document.getElementById('modal-cancel');
+        
+        const accessDeniedMsg = document.getElementById('access-denied-message');
+        const adminContent = document.getElementById('admin-content');
+        const storyListContainer = document.getElementById('story-list-container');
+        const adminStoryListContainer = document.getElementById('admin-story-list-container');
+        const adminChaptersListContainer = document.getElementById('admin-chapters-list-container');
+        const paginationContainer = document.getElementById('pagination-container');
+
+        const storySearchInput = document.getElementById('story-search-input');
+        const searchSuggestionsEl = document.getElementById('search-suggestions');
+        
+        const detailStoryImageEl = document.getElementById('detail-story-image');
+        const detailStoryTitleEl = document.getElementById('detail-story-title');
+        const detailStoryDescriptionEl = document.getElementById('detail-story-description');
+        const chaptersListContainer = document.getElementById('chapters-list-container');
+        const readingChapterTitleEl = document.getElementById('reading-chapter-title');
+        const readingChapterContentEl = document.getElementById('reading-chapter-content');
+        const prevChapterBtn = document.getElementById('prev-chapter-btn');
+        const nextChapterBtn = document.getElementById('next-chapter-btn');
+        const readingPage = document.getElementById('chapter-reading-page');
+        const chapterStorySelect = document.getElementById('chapter-story-select');
+
+        const selectAllStoriesCheckbox = document.getElementById('select-all-stories');
+        const deleteSelectedStoriesBtn = document.getElementById('delete-selected-stories-btn');
+        const selectAllChaptersCheckbox = document.getElementById('select-all-chapters');
+        const deleteSelectedChaptersBtn = document.getElementById('delete-selected-chapters-btn');
+
+        let isAdmin = false;
+        let currentStoryId = null;
+        let currentPage = 1;
+
+        // Ngăn menu chuột phải trên trang đọc truyện
+        readingPage.addEventListener('contextmenu', e => e.preventDefault());
+        // Ngăn Ctrl+C và các tổ hợp phím sao chép khác
+        readingPage.addEventListener('keydown', e => {
+            if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+            }
+        });
+
+        function showCustomModal(message, isConfirm = false, showInput = false) {
+            modalMessageEl.textContent = message;
+            modalCancelBtn.classList.toggle('hidden', !isConfirm);
+            modalInputContainer.classList.toggle('hidden', !showInput);
+            if (showInput) modalInput.value = '';
+            customModal.classList.remove('hidden');
+
+            return new Promise((resolve) => {
+                modalOkBtn.onclick = () => {
+                    customModal.classList.add('hidden');
+                    resolve(showInput ? modalInput.value : true);
+                };
+                if (isConfirm) {
+                    modalCancelBtn.onclick = () => {
+                        customModal.classList.add('hidden');
+                        resolve(false);
+                    };
+                }
+            });
+        }
+        
+        let stories = JSON.parse(localStorage.getItem('stories')) || [];
+        let chapters = JSON.parse(localStorage.getItem('chapters')) || [];
+
+        if (stories.length === 0) {
+            const genres = ["Fantasy", "Science Fiction", "Romance", "Mystery", "Adventure", "Horror"];
+            const titles = ["Huyền Thoại Ma Cà Rồng", "Tình Yêu Xuyên Thời Gian", "Bí Mật Cổ Xưa", "Vùng Đất Bị Lãng Quên", "Thám Tử Đường Phố"];
+            
+            for (let i = 1; i <= 200; i++) { // Tạo 200 truyện giả để kiểm tra phân trang
+                const storyId = `story-${i}`;
+                const storyName = titles[i % titles.length] + ` ${i}`;
+                const storyDescription = `Đây là truyện ${storyName}. Một câu chuyện ly kỳ và hấp dẫn về...`;
+                const storyGenre = genres[Math.floor(Math.random() * genres.length)];
+                
+                stories.push({
+                    id: storyId,
+                    name: storyName,
+                    description: storyDescription,
+                    genre: storyGenre,
+                    coverImage: `https://placehold.co/300x450/d1fae5/1f2937?text=${encodeURIComponent(storyName)}`,
+                    chapterCount: Math.floor(Math.random() * 200) + 10,
+                    views: Math.floor(Math.random() * 100000) + 500
+                });
+
+                // Chỉ tạo 5 chương giả cho mỗi truyện để tiết kiệm dung lượng
+                for (let j = 1; j <= 5; j++) {
+                    chapters.push({
+                        id: `chap-${storyId}-${j}`,
+                        storyId: storyId,
+                        title: `Chương ${j}`,
+                        content: `Nội dung chương ${j} của truyện ${storyName}.`
+                    });
+                }
+            }
+            saveData();
+        }
+
+        function saveData() {
+            localStorage.setItem('stories', JSON.stringify(stories));
+            localStorage.setItem('chapters', JSON.stringify(chapters));
+        }
+
+        function renderHomepageContent(page, filteredStories = null) {
+            const storiesToRender = filteredStories || stories;
+            const totalStories = storiesToRender.length;
+            const totalPages = Math.ceil(totalStories / STORIES_PER_PAGE);
+            currentPage = page;
+            
+            const startIndex = (currentPage - 1) * STORIES_PER_PAGE;
+            const endIndex = startIndex + STORIES_PER_PAGE;
+            const paginatedStories = storiesToRender.slice(startIndex, endIndex);
+
+            if (paginatedStories.length === 0) {
+                storyListContainer.innerHTML = '<p class="text-center text-gray-700">Không tìm thấy truyện nào.</p>';
+                paginationContainer.classList.add('hidden');
+                return;
+            }
+            
+            storyListContainer.innerHTML = '';
+            storyListContainer.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3', 'gap-6');
+
+            paginatedStories.forEach(story => {
+                const storyCard = document.createElement('div');
+                storyCard.classList.add('story-card', 'p-6', 'bg-white', 'rounded-lg', 'shadow-lg', 'cursor-pointer');
+                storyCard.setAttribute('onclick', `showStoryDetails('${story.id}')`);
+                
+                const coverImage = story.coverImage ? `<img src="${story.coverImage}" alt="Story cover" class="w-full h-auto object-cover rounded-md mb-4 aspect-auto">` : '';
+
+                storyCard.innerHTML = `
+                    ${coverImage}
+                    <h3 class="text-xl font-bold text-gray-800">${story.name}</h3>
+                    <div class="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                        <span class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
+                            </svg>
+                            ${story.chapterCount || 0} chương
+                        </span>
+                        <span class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                            </svg>
+                            ${(story.views || 0).toLocaleString()} lượt xem
+                        </span>
+                    </div>
+                `;
+                storyListContainer.appendChild(storyCard);
+            });
+
+            if (!filteredStories && totalPages > 1) {
+                renderPagination(totalPages);
+                paginationContainer.classList.remove('hidden');
+            } else {
+                paginationContainer.classList.add('hidden');
+            }
+        }
+        
+        function renderPagination(totalPages) {
+            paginationContainer.innerHTML = '';
+            
+            const prevButton = document.createElement('button');
+            prevButton.classList.add('px-3', 'py-1', 'rounded-md', 'border', 'border-gray-300', 'bg-white', 'hover:bg-gray-100', 'pagination-button');
+            prevButton.textContent = 'Trước';
+            prevButton.disabled = currentPage === 1;
+            prevButton.onclick = () => {
+                if (currentPage > 1) {
+                    renderHomepageContent(currentPage - 1);
+                }
+            };
+            paginationContainer.appendChild(prevButton);
+
+            const maxVisiblePages = 7;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            if (startPage > 1) {
+                const firstPageButton = createPageButton(1);
+                paginationContainer.appendChild(firstPageButton);
+                if (startPage > 2) {
+                    paginationContainer.appendChild(document.createTextNode('...'));
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageButton = createPageButton(i);
+                if (i === currentPage) {
+                    pageButton.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600');
+                    pageButton.classList.remove('bg-white');
+                }
+                paginationContainer.appendChild(pageButton);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationContainer.appendChild(document.createTextNode('...'));
+                }
+                const lastPageButton = createPageButton(totalPages);
+                paginationContainer.appendChild(lastPageButton);
+            }
+
+            const nextButton = document.createElement('button');
+            nextButton.classList.add('px-3', 'py-1', 'rounded-md', 'border', 'border-gray-300', 'bg-white', 'hover:bg-gray-100', 'pagination-button');
+            nextButton.textContent = 'Tiếp';
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.onclick = () => {
+                if (currentPage < totalPages) {
+                    renderHomepageContent(currentPage + 1);
+                }
+            };
+            paginationContainer.appendChild(nextButton);
+        }
+
+        function createPageButton(pageNumber) {
+            const button = document.createElement('button');
+            button.classList.add('px-3', 'py-1', 'rounded-md', 'border', 'border-gray-300', 'bg-white', 'hover:bg-gray-100', 'pagination-button');
+            button.textContent = pageNumber;
+            button.onclick = () => renderHomepageContent(pageNumber);
+            return button;
+        }
+        
+        window.showStoryDetails = function(storyId) {
+            currentStoryId = storyId;
+            const story = stories.find(s => s.id === storyId);
+
+            if (!story) {
+                showCustomModal('Không tìm thấy truyện.');
+                return;
+            }
+
+            detailStoryTitleEl.textContent = story.name;
+            detailStoryDescriptionEl.textContent = story.description;
+            detailStoryImageEl.src = story.coverImage || "https://placehold.co/300x450/1f2937/d1fae5?text=Ảnh+bìa";
+            
+            const chaptersOfStory = chapters.filter(chap => chap.storyId === storyId).sort((a, b) => a.id - b.id);
+            
+            chaptersListContainer.innerHTML = '';
+            if (chaptersOfStory.length === 0) {
+                chaptersListContainer.innerHTML = '<p class="text-gray-700">Truyện chưa có chương nào.</p>';
+            } else {
+                chaptersOfStory.forEach(chapter => {
+                    const chapterItem = document.createElement('div');
+                    chapterItem.classList.add('p-4', 'bg-gray-100', 'rounded-md', 'cursor-pointer', 'hover:bg-gray-200', 'transition');
+                    chapterItem.innerHTML = `<span class="chapter-link font-semibold" onclick="readChapter('${storyId}', '${chapter.id}')">Chương: ${chapter.title}</span>`;
+                    chaptersListContainer.appendChild(chapterItem);
+                });
+            }
+            showPage('story-detail');
+        }
+
+        window.readChapter = function(storyId, chapterId) {
+            currentStoryId = storyId;
+            const chaptersOfStory = chapters.filter(chap => chap.storyId === storyId).sort((a, b) => a.id - b.id);
+            const currentChapterIndex = chaptersOfStory.findIndex(chap => chap.id === chapterId);
+            const chapter = chaptersOfStory[currentChapterIndex];
+
+            if (!chapter) {
+                showCustomModal('Không tìm thấy chương.');
+                return;
+            }
+            
+            // Tăng lượt xem cho truyện
+            const storyIndex = stories.findIndex(s => s.id === storyId);
+            if (storyIndex !== -1) {
+                stories[storyIndex].views = (stories[storyIndex].views || 0) + 1;
+                saveData();
+                renderHomepageContent(currentPage);
+            }
+
+            readingChapterTitleEl.textContent = chapter.title;
+            readingChapterContentEl.textContent = chapter.content;
+
+            prevChapterBtn.onclick = () => readChapter(storyId, chaptersOfStory[currentChapterIndex - 1].id);
+            nextChapterBtn.onclick = () => readChapter(storyId, chaptersOfStory[currentChapterIndex + 1].id);
+
+            prevChapterBtn.classList.toggle('hidden', currentChapterIndex === 0);
+            nextChapterBtn.classList.toggle('hidden', currentChapterIndex === chaptersOfStory.length - 1);
+
+            showPage('chapter-reading');
+        }
+
+        window.backToStoryDetails = function() {
+            if (currentStoryId) {
+                showStoryDetails(currentStoryId);
+            } else {
+                showPage('home');
+            }
+        }
+
+        function renderAdminContent() {
+            // Điền vào dropdown truyện để thêm chương mới
+            chapterStorySelect.innerHTML = '<option value="">-- Chọn truyện --</option>';
+            stories.forEach(story => {
+                const option = document.createElement('option');
+                option.value = story.id;
+                option.textContent = story.name;
+                chapterStorySelect.appendChild(option);
+            });
+            
+            renderAdminStoryList();
+            renderAdminChapterList();
+        }
+
+        function renderAdminStoryList() {
+            adminStoryListContainer.innerHTML = '';
+            if (stories.length === 0) {
+                adminStoryListContainer.innerHTML = '<p class="text-gray-700">Không có truyện nào để hiển thị.</p>';
+                return;
+            }
+
+            stories.forEach(story => {
+                const storyDiv = document.createElement('div');
+                storyDiv.classList.add('p-4', 'bg-gray-100', 'rounded-md', 'flex', 'items-center', 'space-x-4');
+                storyDiv.innerHTML = `
+                    <input type="checkbox" name="story-checkbox" data-story-id="${story.id}" class="rounded text-green-500 focus:ring-green-400">
+                    <div class="flex-grow">
+                        <h3 class="font-semibold">${story.name}</h3>
+                        <p class="text-sm text-gray-600">ID: ${story.id}</p>
+                    </div>
+                    <div>
+                        <button onclick="deleteSingleStory('${story.id}')" class="text-red-500 hover:underline">Xóa</button>
+                    </div>
+                `;
+                adminStoryListContainer.appendChild(storyDiv);
+            });
+        }
+        
+        function renderAdminChapterList() {
+            adminChaptersListContainer.innerHTML = '';
+            if (chapters.length === 0) {
+                adminChaptersListContainer.innerHTML = '<p class="text-gray-700">Không có chương nào để hiển thị.</p>';
+                return;
+            }
+            
+            chapters.forEach(chapter => {
+                const storyName = stories.find(s => s.id === chapter.storyId)?.name || 'Truyện không rõ';
+                const chapterDiv = document.createElement('div');
+                chapterDiv.classList.add('p-4', 'bg-gray-100', 'rounded-md', 'flex', 'items-center', 'space-x-4');
+                chapterDiv.innerHTML = `
+                    <input type="checkbox" name="chapter-checkbox" data-chapter-id="${chapter.id}" class="rounded text-green-500 focus:ring-green-400">
+                    <div class="flex-grow">
+                        <h3 class="font-semibold">${chapter.title}</h3>
+                        <p class="text-sm text-gray-600">Thuộc truyện: ${storyName}</p>
+                    </div>
+                    <div>
+                        <button onclick="deleteSingleChapter('${chapter.id}')" class="text-red-500 hover:underline">Xóa</button>
+                    </div>
+                `;
+                adminChaptersListContainer.appendChild(chapterDiv);
+            });
+        }
+
+        function showPage(pageId) {
+            pages.forEach(page => page.classList.add('hidden'));
+            const targetPage = document.getElementById(`${pageId}-page`);
+
+            if (pageId === 'admin') {
+                if (isAdmin) {
+                    targetPage.classList.remove('hidden');
+                    accessDeniedMsg.classList.add('hidden');
+                    adminContent.classList.remove('hidden');
+                    renderAdminContent();
+                } else {
+                    targetPage.classList.remove('hidden');
+                    accessDeniedMsg.classList.remove('hidden');
+                    adminContent.classList.add('hidden');
+                }
+            } else {
+                targetPage.classList.remove('hidden');
+            }
+        }
+
+        function updateAdminUI() {
+            if (isAdmin) {
+                adminStateSpan.textContent = 'Thoát Admin';
+                adminLink.classList.remove('hidden');
+                adminAccessBtn.classList.remove('bg-blue-500');
+                adminAccessBtn.classList.add('bg-red-500');
+            } else {
+                adminStateSpan.textContent = 'Đăng nhập Admin';
+                adminLink.classList.add('hidden');
+                adminAccessBtn.classList.remove('bg-red-500');
+                adminAccessBtn.classList.add('bg-blue-500');
+            }
+        }
+
+        adminAccessBtn.addEventListener('click', async () => {
+            if (isAdmin) {
+                isAdmin = false;
+                updateAdminUI();
+                showPage('home');
+            } else {
+                const password = await showCustomModal('Vui lòng nhập mật khẩu quản trị:', false, true);
+                if (password === ACCESS_TOKEN) {
+                    isAdmin = true;
+                    updateAdminUI();
+                    showPage('admin');
+                    await showCustomModal('Đăng nhập quản trị thành công!');
+                } else {
+                    await showCustomModal('Mật khẩu không đúng. Vui lòng thử lại.');
+                }
+            }
+        });
+
+        document.getElementById('add-story-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('story-name').value;
+            const description = document.getElementById('story-description').value;
+            const genre = document.getElementById('story-genre').value;
+            const imageFile = document.getElementById('story-image').files[0];
+            
+            let coverImage = null;
+            if (imageFile) {
+                coverImage = await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.readAsDataURL(imageFile);
+                });
+            }
+
+            const newStory = {
+                id: Date.now().toString(),
+                name,
+                description,
+                genre,
+                coverImage,
+                chapterCount: 0,
+                views: 0
+            };
+            stories.push(newStory);
+            saveData();
+            await showCustomModal(`Đã thêm truyện: ${name}`);
+            document.getElementById('add-story-form').reset();
+            renderAdminContent();
+            renderHomepageContent(currentPage);
+        });
+
+        document.getElementById('add-chapter-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const storyId = document.getElementById('chapter-story-select').value;
+            const title = document.getElementById('chapter-title').value;
+            const content = document.getElementById('chapter-content').value;
+
+            if (!storyId) {
+                await showCustomModal('Vui lòng chọn một truyện!');
+                return;
+            }
+
+            const newChapter = {
+                id: Date.now().toString(),
+                storyId,
+                title,
+                content
+            };
+            chapters.push(newChapter);
+
+            const story = stories.find(s => s.id === storyId);
+            if (story) {
+                story.chapterCount = (story.chapterCount || 0) + 1;
+            }
+
+            saveData();
+            await showCustomModal(`Đã thêm chương: ${title}`);
+            document.getElementById('add-chapter-form').reset();
+            renderAdminContent();
+            renderHomepageContent(currentPage);
+        });
+
+        async function deleteSingleStory(storyId) {
+            const confirmed = await showCustomModal('Bạn có chắc chắn muốn xóa truyện này không?', true);
+            if (confirmed) {
+                stories = stories.filter(story => story.id !== storyId);
+                chapters = chapters.filter(chap => chap.storyId !== storyId);
+                saveData();
+                renderAdminContent();
+                renderHomepageContent(currentPage);
+                await showCustomModal('Đã xóa truyện thành công!');
+            }
+        }
+        
+        async function deleteSingleChapter(chapterId) {
+            const confirmed = await showCustomModal('Bạn có chắc chắn muốn xóa chương này không?', true);
+            if (confirmed) {
+                const chapterToDelete = chapters.find(c => c.id === chapterId);
+                if (chapterToDelete) {
+                    const story = stories.find(s => s.id === chapterToDelete.storyId);
+                    if (story) {
+                        story.chapterCount = (story.chapterCount || 1) - 1;
+                    }
+                }
+                chapters = chapters.filter(chap => chap.id !== chapterId);
+                saveData();
+                renderAdminContent();
+                renderHomepageContent(currentPage);
+                await showCustomModal('Đã xóa chương thành công!');
+            }
+        }
+        
+        // Xử lý checkbox chọn tất cả truyện
+        selectAllStoriesCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('input[name="story-checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+        });
+
+        // Xử lý nút xóa truyện đã chọn
+        deleteSelectedStoriesBtn.addEventListener('click', async () => {
+            const selectedIds = Array.from(document.querySelectorAll('input[name="story-checkbox"]:checked'))
+                                     .map(checkbox => checkbox.dataset.storyId);
+
+            if (selectedIds.length === 0) {
+                await showCustomModal('Vui lòng chọn ít nhất một truyện để xóa.');
+                return;
+            }
+
+            const confirmed = await showCustomModal(`Bạn có chắc chắn muốn xóa ${selectedIds.length} truyện đã chọn?`, true);
+            if (confirmed) {
+                stories = stories.filter(story => !selectedIds.includes(story.id));
+                chapters = chapters.filter(chap => !selectedIds.includes(chap.storyId));
+                saveData();
+                renderAdminContent();
+                renderHomepageContent(currentPage);
+                await showCustomModal(`Đã xóa ${selectedIds.length} truyện thành công!`);
+            }
+        });
+        
+        // Xử lý checkbox chọn tất cả chương
+        selectAllChaptersCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('input[name="chapter-checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+        });
+        
+        // Xử lý nút xóa chương đã chọn
+        deleteSelectedChaptersBtn.addEventListener('click', async () => {
+            const selectedIds = Array.from(document.querySelectorAll('input[name="chapter-checkbox"]:checked'))
+                                     .map(checkbox => checkbox.dataset.chapterId);
+
+            if (selectedIds.length === 0) {
+                await showCustomModal('Vui lòng chọn ít nhất một chương để xóa.');
+                return;
+            }
+            
+            const confirmed = await showCustomModal(`Bạn có chắc chắn muốn xóa ${selectedIds.length} chương đã chọn?`, true);
+            if (confirmed) {
+                selectedIds.forEach(id => {
+                    const chapterToDelete = chapters.find(c => c.id === id);
+                    if (chapterToDelete) {
+                        const story = stories.find(s => s.id === chapterToDelete.storyId);
+                        if (story) {
+                            story.chapterCount = (story.chapterCount || 1) - 1;
+                        }
+                    }
+                });
+                
+                chapters = chapters.filter(chap => !selectedIds.includes(chap.id));
+                saveData();
+                renderAdminContent();
+                renderHomepageContent(currentPage);
+                await showCustomModal(`Đã xóa ${selectedIds.length} chương thành công!`);
+            }
+        });
+        
+        storySearchInput.addEventListener('input', () => {
+            const query = storySearchInput.value.toLowerCase().trim();
+            searchSuggestionsEl.innerHTML = '';
+            if (query === '') {
+                searchSuggestionsEl.classList.add('hidden');
+                renderHomepageContent(1);
+                return;
+            }
+
+            const filteredStories = stories.filter(story => story.name.toLowerCase().includes(query));
+            if (filteredStories.length > 0) {
+                filteredStories.forEach(story => {
+                    const suggestionItem = document.createElement('div');
+                    suggestionItem.classList.add('search-suggestion-item', 'text-gray-800');
+                    suggestionItem.textContent = story.name;
+                    suggestionItem.onclick = () => {
+                        showStoryDetails(story.id);
+                        searchSuggestionsEl.classList.add('hidden');
+                        storySearchInput.value = '';
+                    };
+                    searchSuggestionsEl.appendChild(suggestionItem);
+                });
+                searchSuggestionsEl.classList.remove('hidden');
+                renderHomepageContent(1, filteredStories);
+            } else {
+                searchSuggestionsEl.classList.add('hidden');
+                renderHomepageContent(1, []);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!document.querySelector('.search-container').contains(e.target)) {
+                searchSuggestionsEl.classList.add('hidden');
+            }
+        });
+
+        updateAdminUI();
+        renderHomepageContent(currentPage);
+        showPage('home');
+    </script>
+</body>
+</html>
